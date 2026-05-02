@@ -1,0 +1,8 @@
+template-file-path: template.yaml
+
+parameters: {}
+
+tags:
+  Project: AWS-ASG-ALB-Lab
+  Environment: Production
+
