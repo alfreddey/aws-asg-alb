@@ -212,10 +212,70 @@ Resources:
         UserData:
           Fn::Base64: |
             #!/bin/bash
-            yum install -y httpd
+            yum update -y
+            yum install -y httpd php
             systemctl start httpd
-            INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
-            echo "<h1>$INSTANCE_ID</h1>" > /var/www/html/index.html
+            systemctl enable httpd
+            
+            # Fetch instance data using IMDSv2
+            TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+            INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+            AZ=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+            
+            # Create the main page
+            cat << EOF > /var/www/html/index.php
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Auto Scaling Demo</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f4f4f9; }
+                    .button { padding: 15px 30px; font-size: 20px; cursor: pointer; background-color: #ff4c4c; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                    .button:hover { background-color: #e60000; }
+                    .info-box { background: white; padding: 20px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px;}
+                </style>
+            </head>
+            <body>
+                <div class="info-box">
+                    <h1>Auto Scaling Web App</h1>
+                    <h2>Instance ID: <span style="color: #0066cc;">$INSTANCE_ID</span></h2>
+                    <h3>Availability Zone: $AZ</h3>
+                </div>
+                <br>
+                <form action="stress.php" method="POST">
+                    <button class="button" type="submit">Stress CPU</button>
+                </form>
+            </body>
+            </html>
+            EOF
+            
+            # Create the stress script
+            cat << 'EOF' > /var/www/html/stress.php
+            <!DOCTYPE html>
+            <html>
+            <head><title>Stressing CPU...</title></head>
+            <body style="font-family: Arial; text-align: center; margin-top: 50px;">
+                <h1 style="color: red;">CPU Stress Test Running!</h1>
+                <p>This instance is now running a 60-second heavy calculation loop.</p>
+                <p>Check your AWS Auto Scaling Group metrics to observe the scale-out event.</p>
+                <a href="index.php" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px;">Go Back</a>
+            </body>
+            </html>
+            <?php
+            // Flush output to browser immediately
+            ob_implicit_flush(true);
+            ob_end_flush();
+            
+            // Run a loop for 60 seconds to spike the CPU
+            $end_time = time() + 60;
+            while(time() < $end_time) {
+                $math = sqrt(rand(1, 100000));
+            }
+            ?>
+            EOF
+            
+            # Clean up default html
+            rm -f /var/www/html/index.html
 
 # ---------------- Auto Scaling ----------------
   ASG:
