@@ -207,6 +207,8 @@ Resources:
       LaunchTemplateData:
         ImageId: ami-09e320d375d7b8d3e # Amazon Linux 2 (update per region)
         InstanceType: t3.micro
+        Monitoring:
+          Enabled: true
         SecurityGroupIds:
           - !Ref EC2SG
         UserData:
@@ -255,22 +257,16 @@ Resources:
             <html>
             <head><title>Stressing CPU...</title></head>
             <body style="font-family: Arial; text-align: center; margin-top: 50px;">
-                <h1 style="color: red;">CPU Stress Test Running!</h1>
-                <p>This instance is now running a 5-minute heavy calculation loop.</p>
-                <p>Check your AWS Auto Scaling Group metrics to observe the scale-out event.</p>
+                <h1 style="color: red;">🔥 CPU Stressed to 100%!</h1>
+                <p>Two background processes have been spawned to max out both vCPUs for 5 minutes.</p>
+                <p>Because we enabled Detailed Monitoring, the Auto Scaling group will detect this and scale out in about 3 minutes!</p>
                 <a href="index.php" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px;">Go Back</a>
             </body>
             </html>
             <?php
-            // Flush output to browser immediately
-            ob_implicit_flush(true);
-            ob_end_flush();
-            
-            // Run a loop for 300 seconds (5 minutes) to spike the CPU
-            $end_time = time() + 300;
-            while(time() < $end_time) {
-                $math = sqrt(rand(1, 100000));
-            }
+            // Spawn two "yes" commands in the background that will self-terminate after 300 seconds.
+            // This maxes out the 2 vCPUs of a t3.micro instance instantly.
+            exec('timeout 300 bash -c "yes > /dev/null & yes > /dev/null & wait" > /dev/null 2>&1 &');
             ?>
             EOF
             
