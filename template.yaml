@@ -10,10 +10,21 @@ Resources:
       CidrBlock: 10.0.0.0/16
       EnableDnsSupport: true
       EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: WebApp-VPC
+        - Key: Owner
+          Value: alfred-dey
 
 # ---------------- Internet Gateway ----------------
   IGW:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: WebApp-IGW
+        - Key: Owner
+          Value: alfred-dey
 
   AttachIGW:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -28,6 +39,11 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: 10.0.1.0/24
       AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: WebApp-PublicSubnet1
+        - Key: Owner
+          Value: alfred-dey
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -35,6 +51,11 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: 10.0.2.0/24
       AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: WebApp-PublicSubnet2
+        - Key: Owner
+          Value: alfred-dey
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -42,6 +63,11 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: 10.0.3.0/24
       AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: WebApp-PrivateSubnet1
+        - Key: Owner
+          Value: alfred-dey
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -49,6 +75,11 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: 10.0.4.0/24
       AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: WebApp-PrivateSubnet2
+        - Key: Owner
+          Value: alfred-dey
 
 # ---------------- Route Tables ----------------
   PublicRouteTable:
@@ -145,6 +176,11 @@ Resources:
         - !Ref PublicSubnet2
       SecurityGroups:
         - !Ref ALBSG
+      Tags:
+        - Key: Name
+          Value: WebApp-ALB
+        - Key: Owner
+          Value: alfred-dey
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -196,6 +232,13 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: WebApp-ASG
+          PropagateAtLaunch: true
+        - Key: Owner
+          Value: alfred-dey
+          PropagateAtLaunch: true
 
 # ---------------- Scaling Policy ----------------
   ScalingPolicy:
