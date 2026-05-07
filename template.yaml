@@ -48,25 +48,25 @@ Resources:
         - Key: Name
           Value: PublicSubnet1b
 
-    PrivateSubnet1a:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref myVPC
-      CidrBlock: 10.0.3.0/24
-      AvailabilityZone: eu-north-1a
-      Tags:
-        - Key: Name
-          Value: PrivateSubnet1a
+  PrivateSubnet1a:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId: !Ref myVPC
+    CidrBlock: 10.0.3.0/24
+    AvailabilityZone: eu-north-1a
+    Tags:
+      - Key: Name
+        Value: PrivateSubnet1a
 
-    PrivateSubnet1b:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref myVPC
-      CidrBlock: 10.0.4.0/24
-      AvailabilityZone: eu-north-1b
-      Tags:
-        - Key: Name
-          Value: PrivateSubnet1b
+  PrivateSubnet1b:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId: !Ref myVPC
+    CidrBlock: 10.0.4.0/24
+    AvailabilityZone: eu-north-1b
+    Tags:
+      - Key: Name
+        Value: PrivateSubnet1b
 
 # INTERNET GATEWAY
   IGW:
@@ -309,7 +309,7 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
         TargetValue: 30
-        
+
 Outputs:
   ALBDNS:
     Value: !GetAtt myLoadBalancer.DNSName
