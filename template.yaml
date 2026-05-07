@@ -223,6 +223,11 @@ Resources:
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId
         InstanceType: !Ref InstanceType
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${AWS::StackName}-instance
         SecurityGroupIds:
           - !Ref EC2SecurityGroup
         UserData:
