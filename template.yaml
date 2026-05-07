@@ -1,10 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Auto Scaling Web App with ALB
 
-Resources:
+Parameters:
+  LatestAmiId:
+    Description: Region specific image from the Parameter Store
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  InstanceType:
+    Description: Amazon EC2 instance type for the instances
+    Type: String
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    Default: t3.micro
 
-# ---------------- VPC ----------------
-  VPC:
+Resources:
+# VPC
+  myVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
@@ -12,205 +25,204 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: WebApp-VPC
-        - Key: Owner
-          Value: alfred-dey
+          Value: !Sub ${AWS::StackName}-vpc
 
-# ---------------- Internet Gateway ----------------
+# SUBNETS
+  PublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: "eu-north-1a"
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1a
+
+  PublicSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: eu-north-1b
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1b
+
+    PrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: eu-north-1a
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1a
+
+    PrivateSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: eu-north-1b
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1b
+
+# INTERNET GATEWAY
   IGW:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags:
+      Tags: 
         - Key: Name
-          Value: WebApp-IGW
-        - Key: Owner
-          Value: alfred-dey
+          Value: !Sub ${AWS::StackName}-igw
 
-  AttachIGW:
+  AttachIGWtoVPC:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref VPC
       InternetGatewayId: !Ref IGW
+      VpcId: !Ref myVPC
 
-# ---------------- Subnets ----------------
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
+# NAT GATEWAY
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1a
+      AvailabilityMode: regional
       Tags:
         - Key: Name
-          Value: WebApp-PublicSubnet1
-        - Key: Owner
-          Value: alfred-dey
+          Value: !Sub ${AWS::StackName}-nat-gateway
 
-  PublicSubnet2:
-    Type: AWS::EC2::Subnet
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
     Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
+      Domain: vpc
       Tags:
         - Key: Name
-          Value: WebApp-PublicSubnet2
-        - Key: Owner
-          Value: alfred-dey
-
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.3.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      Tags:
-        - Key: Name
-          Value: WebApp-PrivateSubnet1
-        - Key: Owner
-          Value: alfred-dey
-
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.4.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
-      Tags:
-        - Key: Name
-          Value: WebApp-PrivateSubnet2
-        - Key: Owner
-          Value: alfred-dey
-
-# ---------------- Route Tables ----------------
+          Value: !Sub ${AWS::StackName}-nat-gateway-eip
+          
+# ROUTES
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-public-route-table
 
-  PublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: AttachIGW
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref IGW
-
-# Associate public subnets
-  PublicSubnet1RT:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet1
-      RouteTableId: !Ref PublicRouteTable
-
-  PublicSubnet2RT:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet2
-      RouteTableId: !Ref PublicRouteTable
-
-# ---------------- NAT Gateway ----------------
-  EIP:
-    Type: AWS::EC2::EIP
-
-  NAT:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt EIP.AllocationId
-      SubnetId: !Ref PublicSubnet1
-
-# Private Route Table
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-private-route-table
 
-  PrivateRoute:
+  PublicRoute:
     Type: AWS::EC2::Route
+    DependsOn: AttachIGWtoVPC
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref IGW
+
+  NatGatewayRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NATGateway
     Properties:
       RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NAT
-
-# Associate private subnets
-  PrivateSubnet1RT:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NATGateway
+      
+  PublicSubnet1aRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet1
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1a
 
-  PrivateSubnet2RT:
+  PublicSubnet1bRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet2
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1b
 
-# ---------------- Security Groups ----------------
-  ALBSG:
+  Private1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1a
+
+  Private1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1b
+
+# LOAD BALANCER
+  myLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: !Sub ${AWS::StackName}-alb
+      Type: application
+      Scheme: internet-facing
+      Subnets: 
+        - !Ref PublicSubnet1a
+        - !Ref PublicSubnet1b
+      SecurityGroups: 
+        - !Ref LoadBalancerSecurityGroup
+
+  myListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref myLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref myTargetGroup
+
+  myTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-target-group
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !Ref myVPC
+
+# SECURITY GROUPS
+  LoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB SG
-      VpcId: !Ref VPC
+      GroupName: !Sub ${AWS::StackName}-lb-sg
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-ec2-sg
+      VpcId: !Ref myVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  EC2SG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: EC2 SG
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSG
-
-# ---------------- Load Balancer ----------------
-  ALB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref ALBSG
-      Tags:
-        - Key: Name
-          Value: WebApp-ALB
-        - Key: Owner
-          Value: alfred-dey
-
-  TargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 80
-      Protocol: HTTP
-      VpcId: !Ref VPC
-      HealthCheckPath: /
-
-  Listener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ALB
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref TargetGroup
-
-# ---------------- Launch Template ----------------
-  LaunchTemplate:
+# AUTO SCALING GROUP
+  myLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
-    Properties:
+    Properties: 
+      LaunchTemplateName: !Sub ${AWS::StackName}-launch-template
       LaunchTemplateData:
-        ImageId: ami-09e320d375d7b8d3e # Amazon Linux 2 (update per region)
-        InstanceType: t3.micro
-        Monitoring:
-          Enabled: true
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType
         SecurityGroupIds:
-          - !Ref EC2SG
+          - !Ref EC2SecurityGroup
         UserData:
           Fn::Base64: |
             #!/bin/bash
@@ -257,7 +269,7 @@ Resources:
             <html>
             <head><title>Stressing CPU...</title></head>
             <body style="font-family: Arial; text-align: center; margin-top: 50px;">
-                <h1 style="color: red;">🔥 CPU Stressed to 100%!</h1>
+                <h1 style="color: red;">CPU Stressed to 100%!</h1>
                 <p>Two background processes have been spawned to max out both vCPUs for 5 minutes.</p>
                 <p>Because we enabled Detailed Monitoring, the Auto Scaling group will detect this and scale out in about 3 minutes!</p>
                 <a href="index.php" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px;">Go Back</a>
@@ -273,40 +285,31 @@ Resources:
             # Clean up default html
             rm -f /var/www/html/index.html
 
-# ---------------- Auto Scaling ----------------
   ASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      MinSize: '1'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref myLaunchTemplate
+        Version: !GetAtt myLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref myTargetGroup
       MaxSize: '4'
       DesiredCapacity: '1'
+      MinSize: '1'
       VPCZoneIdentifier:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      TargetGroupARNs:
-        - !Ref TargetGroup
-      LaunchTemplate:
-        LaunchTemplateId: !Ref LaunchTemplate
-        Version: !GetAtt LaunchTemplate.LatestVersionNumber
-      Tags:
-        - Key: Name
-          Value: WebApp-ASG
-          PropagateAtLaunch: true
-        - Key: Owner
-          Value: alfred-dey
-          PropagateAtLaunch: true
+        - !Ref PrivateSubnet1a
+        - !Ref PrivateSubnet1b
 
-# ---------------- Scaling Policy ----------------
-  ScalingPolicy:
+  CPUPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
-      PolicyType: TargetTrackingScaling
       AutoScalingGroupName: !Ref ASG
+      PolicyType: TargetTrackingScaling
       TargetTrackingConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 30.0
-
+        TargetValue: 30
+        
 Outputs:
   ALBDNS:
-    Value: !GetAtt ALB.DNSName
+    Value: !GetAtt myLoadBalancer.DNSName
