@@ -89,6 +89,7 @@ Resources:
       AllocationId: !GetAtt NATGatewayEIP.AllocationId
       SubnetId: !Ref PublicSubnet1a
       AvailabilityMode: regional
+      VpcId: !Ref myVPC
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-nat-gateway
