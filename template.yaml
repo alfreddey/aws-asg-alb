@@ -184,7 +184,7 @@ Resources:
   myTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${AWS::StackName}-target-group
+      Name: !Sub target-group-lab
       Port: 80
       Protocol: HTTP
       TargetType: instance
@@ -195,6 +195,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${AWS::StackName}-lb-sg
+      GroupDescription: Security group for the load balancer
       VpcId: !Ref myVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -206,6 +207,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${AWS::StackName}-ec2-sg
+      GroupDescription: Security group for the EC2 instances
       VpcId: !Ref myVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
